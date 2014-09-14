@@ -40,6 +40,7 @@ class ReadSettings:
                         'audio-default-language': '',
                         'subtitle-default-language': '',
                         'convert-mp4': 'False',
+                        'quick-transcode': 'False',
                         'fullpathguess': 'True',
                         'tagfile': 'True',
                         'download-artwork': 'True',
@@ -137,7 +138,7 @@ class ReadSettings:
         #if self.acodec not in valid_audio_codecs:
         #    self.acodec = 'aac'
         #    print "Audio codec not valid, defaulting to AAC"
-        
+
         self.iOS = config.get(section, "ios-audio")  # Creates a second audio channel if the standard output methods are different from this for iOS compatability
         if self.iOS == "" or self.iOS.lower() in ['false', 'no', 'f', '0']:
             self.iOS = False
@@ -210,6 +211,7 @@ class ReadSettings:
             if not os.path.isdir(self.output_dir):
                 os.makedirs(self.output_dir)
         self.processMP4 = config.getboolean(section, "convert-mp4")  # Determine whether or not to reprocess mp4 files or just tag them
+        self.quickTranscode = config.getboolean(section, "quick-transcode") # Perform a copy-only transcode (of video) or abort processing
         self.fullpathguess = config.getboolean(section, "fullpathguess") # Guess using the full path or not
         self.tagfile = config.getboolean(section, "tagfile") # Tag files with metadata
         self.artwork = config.getboolean(section, "download-artwork") # Download and embed artwork

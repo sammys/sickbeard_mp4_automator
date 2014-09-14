@@ -86,7 +86,7 @@ def getinfo(fileName=None, silent=False, tag=settings.tagfile, tvdbid=None):
         elif m_type is 5:
             return False
     else:
-        if tagdata and tag: 
+        if tagdata and tag:
             return tagdata
         else:
             return None
@@ -175,11 +175,11 @@ def processFile(inputfile, tagdata, relativePath=None):
             print "Processing %s Season %02d Episode %02d - %s" % (tagmp4.show.encode(sys.stdout.encoding, errors='ignore'), int(tagmp4.season), int(tagmp4.episode), tagmp4.title.encode(sys.stdout.encoding, errors='ignore'))
         except:
             print "Processing TV episode"
-    
+
     # Process
-    try: 
+    try:
         inputfile = inputfile.encode(locale.getpreferredencoding())
-    except: 
+    except:
         raise Exception, "File contains an unknown character that cannot be handled by under Python in your operating system, please rename the file"
     if MkvtoMp4(settings).validSource(inputfile):
         converter = MkvtoMp4(settings)
@@ -227,6 +227,7 @@ def main():
     parser.add_argument('-nd', '--nodelete', action='store_true', help="Overrides and disables deleting of original files")
     parser.add_argument('-pr', '--preserveRelative', action='store_true', help="Preserves relative directories when processing multiple files using the copy-to or move-to functionality")
     parser.add_argument('-cmp4', '--convertmp4', action='store_true', help="Overrides convert-mp4 setting in autoProcess.ini enabling the reprocessing of mp4 files")
+    parser.add_argument('-qt', '--quickTranscode', action='store_true', help="Quickly transcode video (i.e. copy only) and if it's not possible skip processing altogether.")
 
     args = vars(parser.parse_args())
 
@@ -247,6 +248,9 @@ def main():
     if (args['convertmp4']):
         settings.processMP4 = True
         print "Reprocessing of MP4 files enabled"
+    if (args['quickTranscode']):
+        settings.quickTranscode = True
+        print "Quick transcode enabled"
 
     #Establish the path we will be working with
     if (args['input']):

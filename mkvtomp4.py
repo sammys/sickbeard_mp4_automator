@@ -5,32 +5,33 @@ import json
 import sys
 import shutil
 from converter import Converter
-from extensions import valid_input_extensions, valid_output_extensions, bad_subtitle_codecs, valid_subtitle_extensions
+from extensions import valid_input_extensions, valid_quick_extensions, valid_output_extensions, bad_subtitle_codecs, valid_subtitle_extensions
 from qtfaststart import processor, exceptions
 from babelfish import Language
 
 
 class MkvtoMp4:
-    def __init__(   self, settings=None, 
-                    FFMPEG_PATH="FFMPEG.exe", 
-                    FFPROBE_PATH="FFPROBE.exe", 
-                    delete=True, 
-                    output_extension='mp4', 
-                    output_dir=None, 
-                    relocate_moov=True, 
-                    output_format = 'mp4', 
-                    video_codec=['h264', 'x264'], 
-                    audio_codec=['ac3'], 
-                    audio_bitrate=None, 
-                    iOS=False, 
+    def __init__(   self, settings=None,
+                    FFMPEG_PATH="FFMPEG.exe",
+                    FFPROBE_PATH="FFPROBE.exe",
+                    delete=True,
+                    output_extension='mp4',
+                    output_dir=None,
+                    relocate_moov=True,
+                    output_format = 'mp4',
+                    video_codec=['h264', 'x264'],
+                    audio_codec=['ac3'],
+                    audio_bitrate=None,
+                    iOS=False,
                     maxchannels=None,
-                    awl=None, 
-                    swl=None, 
-                    adl=None, 
-                    sdl=None, 
+                    awl=None,
+                    swl=None,
+                    adl=None,
+                    sdl=None,
                     downloadsubs=True,
-                    processMP4=False, 
-                    copyto=None, 
+                    processMP4=False,
+                    quickTranscode=False,
+                    copyto=None,
                     moveto=None,
                     embedsubs=True,
                     providers=['addic7ed', 'podnapisi', 'thesubdb', 'opensubtitles']):
@@ -43,6 +44,7 @@ class MkvtoMp4:
         self.output_dir=output_dir
         self.relocate_moov=relocate_moov
         self.processMP4=processMP4
+        self.quickTranscode=quickTranscode
         self.copyto=copyto
         self.moveto=moveto
         self.relocate_moov=relocate_moov
@@ -76,6 +78,7 @@ class MkvtoMp4:
         self.output_dir=settings.output_dir
         self.relocate_moov=settings.relocate_moov
         self.processMP4=settings.processMP4
+        self.quickTranscode=settings.quickTranscode
         self.copyto=settings.copyto
         self.moveto=settings.moveto
         self.relocate_moov = settings.relocate_moov
@@ -110,7 +113,7 @@ class MkvtoMp4:
         else:
             outputfile = inputfile
             if self.output_dir is not None:
-                try:                
+                try:
                     outputfile = os.path.join(self.output_dir, os.path.split(inputfile)[1])
                     shutil.copy(inputfile, outputfile)
                 except Exception as e:
@@ -149,10 +152,16 @@ class MkvtoMp4:
     def validSource(self, inputfile):
         input_dir, filename, input_extension = self.parseFile(inputfile)
         # Make sure the input_extension is some sort of recognized extension, and that the file actually exists
-        if (input_extension in valid_input_extensions or input_extension in valid_output_extensions) and os.path.isfile(inputfile):
-            return True
+        if os.path.isfile(inputfile):
+            if (self.quickTranscode and input_extension in valid_quick_extensions):
+                info = Converter(self.FFMPEG_PATH, self.FFPROBE_PATH).probe(inputfile)
+                return info.video.codec in self.video_codec
+            elif not self.quickTranscode and (input_extension in valid_input_extensions or input_extension in valid_output_extensions):
+                return True
+            else:
+                return False
         else:
-            return False            
+            return False
 
     # Determine if a file meets the criteria for processing
     def needProcessing(self, inputfile):
@@ -166,17 +175,17 @@ class MkvtoMp4:
     # Get values for width and height to be passed to the tagging classes for proper HD tags
     def getDimensions(self, inputfile):
         if self.validSource(inputfile): info = Converter(self.FFMPEG_PATH, self.FFPROBE_PATH).probe(inputfile)
-        
+
         return { 'y': info.video.video_height,
                  'x': info.video.video_width }
 
     # Generate a list of options to be passed to FFMPEG based on selected settings and the source file parameters and streams
-    def generateOptions(self, inputfile, original=None):    
+    def generateOptions(self, inputfile, original=None):
         #Get path information from the input file
         input_dir, filename, input_extension = self.parseFile(inputfile)
 
         info = Converter(self.FFMPEG_PATH, self.FFPROBE_PATH).probe(inputfile)
-       
+
         #Video stream
         print "Video codec detected: " + info.video.codec
         vcodec = 'copy' if info.video.codec in self.video_codec else self.video_codec[0]
@@ -245,7 +254,7 @@ class MkvtoMp4:
                 s.language = self.sdl
             # Make sure its not an image based codec
             if s.codec.lower() not in bad_subtitle_codecs and self.embedsubs:
-                
+
                 # Proceed if no whitelist is set, or if the language is in the whitelist
                 if self.swl is None or s.language in self.swl:
                     subtitle_settings.update({l: {
@@ -270,7 +279,7 @@ class MkvtoMp4:
                     input_dir, filename, input_extension = self.parseFile(inputfile)
                     output_dir = input_dir if self.output_dir is None else self.output_dir
                     outputfile = os.path.join(output_dir, filename + "." + s.language + ".srt")
-                    
+
                     i = 2
                     while os.path.isfile(outputfile):
                         outputfile = os.path.join(output_dir, filename + "." + s.language + "." + str(i) + ".srt")
@@ -378,7 +387,7 @@ class MkvtoMp4:
             try:
                 os.rename(inputfile, newfile)
                 inputfile = newfile
-            except: 
+            except:
                 i = 1
                 while os.path.isfile(outputfile):
                     outputfile = os.path.join(output_dir, filename + "(" + str(i) + ")." + self.output_extension)
@@ -391,7 +400,7 @@ class MkvtoMp4:
                 sys.stdout.write('[{0}] {1}%\r'.format('#' * (timecode / 10) + ' ' * (10 - (timecode / 10)), timecode))
                 sys.stdout.flush()
         print outputfile + " created"
-        
+
         os.chmod(outputfile, 0777) # Set permissions of newly created file
         return outputfile, inputfile
 
