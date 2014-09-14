@@ -86,6 +86,7 @@ class MediaStreamInfo(object):
         self.video_fps = None
         self.audio_channels = None
         self.audio_samplerate = None
+        self.bitrate = None
         self.sub_forced = None
         self.sub_default = None
         self.language = 'und'
@@ -141,6 +142,8 @@ class MediaStreamInfo(object):
                         self.video_fps = float(n) / float(d)
                 elif '.' in val:
                     self.video_fps = self.parse_float(val)
+            elif key == 'bit_rate':
+                self.bitrate = int(self.parse_float(val) / self.audio_channels / 1000)
 
         if self.type == 'video':
             if key == 'r_frame_rate':
@@ -152,6 +155,8 @@ class MediaStreamInfo(object):
                         self.video_fps = float(n) / float(d)
                 elif '.' in val:
                     self.video_fps = self.parse_float(val)
+            elif key == 'bit_rate':
+                self.bitrate = int(self.parse_int(val) / 1000)
 
         if self.type == 'subtitle':
             if key.lower() == 'disposition:forced':
@@ -162,15 +167,15 @@ class MediaStreamInfo(object):
     def __repr__(self):
         d = ''
         if self.type == 'audio':
-            d = 'type=%s, codec=%s, channels=%d, rate=%.0f' % (self.type,
+            d = 'type=%s, codec=%s, channels=%d, rate=%.0f, bitrate=%d' % (self.type,
                 self.codec, self.audio_channels,
-                self.audio_samplerate)
+                self.audio_samplerate, self.bitrate)
         elif self.type == 'video':
-            d = 'type=%s, codec=%s, width=%d, height=%d, fps=%.1f' % (
+            d = 'type=%s, codec=%s, width=%d, height=%d, fps=%.1f, bitrate=%d' % (
                 self.type, self.codec, self.video_width, self.video_height,
-                self.video_fps)
+                self.video_fps, self.bitrate)
         elif self.type == 'subtitle':
-            d = 'type=%s, language=%s, forced=%d' % (self.type, self.sub_language, self.sub_forced)
+            d = 'type=%s, language=%s, forced=%d' % (self.type, self.language, self.sub_forced)
         return 'MediaStreamInfo(%s)' % d
 
 
@@ -338,6 +343,8 @@ class FFMpeg(object):
         'vorbis'
         >>> info.audio.channels
         2
+        >>> info.audio.bitrate
+        128
         """
 
         if not os.path.exists(fname):
@@ -380,7 +387,7 @@ class FFMpeg(object):
             raise FFMpegError("Input file doesn't exist: " + infile)
 
         cmds = [self.ffmpeg_path, '-i', infile]
-        
+
         # Move additional inputs to the front of the line
         for ind, command in enumerate(opts):
             if command == '-i':

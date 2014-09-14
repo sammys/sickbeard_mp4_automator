@@ -22,6 +22,7 @@ class MkvtoMp4:
                     video_codec=['h264', 'x264'],
                     audio_codec=['ac3'],
                     audio_bitrate=None,
+                    audio_bitrate_copy=None,
                     iOS=False,
                     maxchannels=None,
                     awl=None,
@@ -53,6 +54,7 @@ class MkvtoMp4:
         # Audio settings
         self.audio_codec=audio_codec
         self.audio_bitrate=audio_bitrate
+        self.audio_bitrate_copy=audio_bitrate_copy
         self.iOS=iOS
         self.maxchannels=maxchannels
         self.awl=awl
@@ -86,7 +88,8 @@ class MkvtoMp4:
         self.video_codec=settings.vcodec
         #Audio settings
         self.audio_codec=settings.acodec
-        #self.audio_bitrate=settings.abitrate
+        self.audio_bitrate=settings.abitrate
+        self.audio_bitrate_copy=settings.abitrate_copy
         self.iOS=settings.iOS
         self.maxchannels=settings.maxchannels
         self.awl=settings.awl
@@ -179,6 +182,25 @@ class MkvtoMp4:
         return { 'y': info.video.video_height,
                  'x': info.video.video_width }
 
+    def getAudioBitrate(self, track_bitrate, track_channels, track_codec):
+        standards = [48, 64, 80, 96, 128, 160]
+        if track_codec == 'copy':
+            if self.audio_bitrate_copy is not None and (track_bitrate == 0 or track_bitrate > self.audio_bitrate_copy):
+                return self.audio_bitrate_copy * track_channels
+            return None
+        elif track_bitrate == 0:
+            return self.audio_bitrate * track_channels
+        bitrate = min(track_bitrate, self.audio_bitrate)
+        usebitrate = None
+        for x in standards:
+            if x > bitrate:
+                usebitrate = x
+                break
+        if usebitrate is None:
+            usebitrate = standards[-1]
+        return usebitrate * track_channels
+
+
     # Generate a list of options to be passed to FFMPEG based on selected settings and the source file parameters and streams
     def generateOptions(self, inputfile, original=None):
         #Get path information from the input file
@@ -209,7 +231,7 @@ class MkvtoMp4:
                             'map': a.index,
                             'codec': self.iOS,
                             'channels': 2,
-                            'bitrate': 256,
+                            'bitrate': self.getAudioBitrate(a.bitrate, 2, self.iOS),
                             'language': a.language,
                         }})
                         l += 1
@@ -229,18 +251,19 @@ class MkvtoMp4:
                     audio_channels = a.audio_channels
 
                 # Bitrate calculations/overrides
-                if self.audio_bitrate is None or self.audio_bitrate > (a.audio_channels * 256):
-                    abitrate = 256 * audio_channels
-                else:
-                    abitrate = self.audio_bitrate
+                abitrate = self.getAudioBitrate(a.bitrate, audio_channels, acodec)
+                if acodec == 'copy' and abitrate is not None:
+                    # We force an audio transcode to the favoured codec
+                    acodec = self.audio_codec[0]
 
                 audio_settings.update({l: {
                     'map': a.index,
                     'codec': acodec,
                     'channels': audio_channels,
-                    'bitrate': abitrate,
                     'language': a.language,
                 }})
+                if abitrate is not None:
+                    audio_settings[l]['bitrate'] = abitrate
                 l = l + 1
 
         # Subtitle streams

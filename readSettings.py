@@ -35,6 +35,8 @@ class ReadSettings:
                         'max-audio-channels': '',
                         'audio-language': '',
                         'audio-codec': 'ac3',
+                        'audio-bitrate': '128',
+                        'audio-bitrate-copy': '',
                         'video-codec': 'h264, x264',
                         'subtitle-language': '',
                         'audio-default-language': '',
@@ -133,6 +135,8 @@ class ReadSettings:
             self.acodec == ['ac3']
         else:
             self.acodec = self.acodec.lower().replace(' ', '').split(',')
+        self.abitrate = config.getint(section, "audio-bitrate")
+        self.abitrate_copy = config.getint(section, "audio-bitrate-copy")
 
         # !!! Leaving this disabled for now, users will be responsible for knowing whicn codecs do and don't work with mp4 files !!!
         #if self.acodec not in valid_audio_codecs:

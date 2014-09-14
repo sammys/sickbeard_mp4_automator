@@ -29,21 +29,23 @@ General Installation Instructions
     - `delete_original` = True/False
     - `relocate_moov` = True/False - relocates the MOOV atom to the beginning of the file for better streaming
     - `ios-audio` = creates a 2nd copy of an audio stream that will be iOS compatible (AAC Stereo) if the normal output will not be. If a stereo source stream is detected with this option enabled, an AAC stereo stream will be the only one produced (essentially overriding the codec option) to avoid multiple stereo audio stream copies in different codecs.
-    - `max-audio-channels` = Sets a maximum number of audio channels. This may provide an alternative to the iOS audio option, where instead users can simply select the desired output codec and the max number of audio channels without the creation of an additional audio track. 
-    - `video-codec` = set your desired video codecs. May specificy multiple comma separated values (ex: h264, x264). The first value specified will be the default conversion choice when an undesired codec is encountered; any codecs specified here will be remuxed/copied rather than converted. 
-    - `audio-codec` = set your desired audio codecs. May specificy multiple comma separated values (ex: ac3, aac). The first value specified will be the default conversion choice when an undesired codec is encountered; any codecs specified here will be remuxed/copied rather than converted. 
+    - `max-audio-channels` = Sets a maximum number of audio channels. This may provide an alternative to the iOS audio option, where instead users can simply select the desired output codec and the max number of audio channels without the creation of an additional audio track.
+    - `video-codec` = set your desired video codecs. May specificy multiple comma separated values (ex: h264, x264). The first value specified will be the default conversion choice when an undesired codec is encountered; any codecs specified here will be remuxed/copied rather than converted.
+    - `audio-codec` = set your desired audio codecs. May specificy multiple comma separated values (ex: ac3, aac). The first value specified will be the default conversion choice when an undesired codec is encountered; any codecs specified here will be remuxed/copied rather than converted.
+    - `audio-bitrate` = set your desired maximum per-channel audio bitrate when transcoding audio.
+    - `audio-bitrate-copy` = set your desired maximum per-channel audio bitrate when audio streams are copied.
     - `audio-language` = 3 letter language code for audio streams you wish to copy. Leave blank to copy all. Separate multiple audio streams with commas (ex: eng,spa)
-    - `audio-default-language` = If an audio stream with an unidentified/untagged language is detected, you can default that language tag to whatever this value is (ex: eng). This is useful for many single-audio releases which don't bother to tag the audio stream as anything
+    - `audio-default-language` = If an audio stream with an unidentified/untagged language is detected, you can default that language tag to whatever this value is (ex: eng). This is useful for many single-audio releases which don't bother to tag the audio stream as anything.
     - `subtitle-language` = same as audio-language but for subtitles
     - `subtitle-language-default` = same as audio-language-default but for subtitles
     - `convert-mp4` = forces the script to reprocess and convert mp4 files as though they were mkvs. Good if you have old mp4's that you want to match your current codec configuration.
     - `fullpathguess` = True/False - When manually processing a file, enable to guess metadata using the full path versus just the file name. (Files shows placed in a 'Movies' folder will be recognized as movies, not as TV shows for example.)
     - `tagfile` = True/False - Enable or disable tagging file with appropriate metadata after encoding.
     - `download-artwork` = True/False - Enabled downloading and embeddeding of Season or Movie posters and embeddeding of that image into the mp4 as the cover image.
-    - `download-subs` = True/False - When enabled the script will attempt to download subtitles of your specified languages automatically using subliminal and merge them into the final mp4 file. 
+    - `download-subs` = True/False - When enabled the script will attempt to download subtitles of your specified languages automatically using subliminal and merge them into the final mp4 file.
     - `embed-subs` = True/False - Enabled by default. Embeds subtitles in the resulting MP4 file that are found embedded in the source file as well as external SRT files. Disabling embed-subs will cause the script to extract any subtitles that meet your language criteria into external SRT files. The script will also attempt to download SRT files if possible and this feature is enabled.
     **YOU MUST INSTALL SUBLIMINAL AND ITS DEPENDENCIES FOR THIS TO WORK.** You must go into the `setup\subliminal` directory included in this script and run `setup.py install` to add support for fetching of subtitles. The version included with this script is modified from the stock version of subliminal, so you must install the included version.
-    - `sub-providers` = Comma separated values for potential subtitle providers. Must specify at least 1 provider to enable `download-subs`. Providers include `podnapisi` `thesubdb` `opensubtitles` `tvsubtitles` `addic7ed` 
+    - `sub-providers` = Comma separated values for potential subtitle providers. Must specify at least 1 provider to enable `download-subs`. Providers include `podnapisi` `thesubdb` `opensubtitles` `tvsubtitles` `addic7ed`
 
 Sick Beard Installation Instructions
 --------------
@@ -78,7 +80,7 @@ Couch Potato Support
     - `password` = your Couch Potato password
 2. Copy the PostProcess directory from the setup folder included with this script to the Couch Potato custom_plugins directory. You can find this directory within your Couch Potato setup by opening Couch Potato and navigating to the About page, where the installation directory is displayed. Copy the PostProcess folder (the whole folder, not just the contents) to Couch Potato and restart Couch Potato. You should see in the logs that it was loaded. Also you'll need to open up the main.py file and set the path variable to the directory where your CPProcess.py script resides, which by default points to C:\\Scripts\\. Use double backslashes. If you make any changes here make sure to delete the `.pyc` files.
 3. Disable automatic checking of the renamer folder, the script will automatically notify Couch Potato when it is complete to check for new videos to be renamed and relocated. Leaving this on may cause conflicts and CouchPotato may try to relocate/rename the file before processing is completed.
-    - Set `Run Every` to `0` 
+    - Set `Run Every` to `0`
     - Set `Force Every` to `0`
     - **WARNING** On Windows there is currently a bug that prevents the script from triggering on its own (will be fixed in the next CP build) so you must set a time interval for CouchPotato to scan the folder, so set Run Every to some non-zero number (>10 preferred)
 4. **OPTIONAL** Point your Couch Potato videos that are sent to SAB to nzbToCouchPotatoMP4.py for post processing; this will convert them before they are passed to Couch Potato. Without this step video files will be converted after being processed by CouchPotato.
@@ -132,7 +134,7 @@ optional arguments:
                         Preserves relative directories when processing
                         multiple files using the copy-to or move-to
                         functionality
-  -cmp4, --convertmp4   Overrides convert-mp4 setting in autoProcess.ini 
+  -cmp4, --convertmp4   Overrides convert-mp4 setting in autoProcess.ini
                         enabling the reprocessing of mp4 files
 ```
 
