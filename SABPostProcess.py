@@ -48,15 +48,19 @@ if len(categories) != len(set(categories)):
 if settings.SAB['convert']:
     log.info("Performing conversion")
     converter = MkvtoMp4(settings)
-    converter.output_dir = None
     for r, d, f in os.walk(path):
         for files in f:
             inputfile = os.path.join(r, files)
             if MkvtoMp4(settings).validSource(inputfile):
                 log.info("Processing file %s." % inputfile)
-                converter.process(inputfile)
+                try:
+                    output = converter.process(inputfile)
+                except:
+                    log.exception("Error converting file %s." % inputfile)
             else:
                 log.debug("Ignoring file %s." % inputfile)
+    if converter.output_dir:
+        path = converter.output_dir
 else:
     log.info("Passing without conversion.")
 
@@ -64,7 +68,7 @@ else:
 if (category == categories[0]):
     log.info("Passing %s directory to Sickbeard." % path)
     autoProcessTV.processEpisode(path, settings, nzb)
-# Send to CouchPotato        
+# Send to CouchPotato
 elif (category == categories[1]):
     log.info("Passing %s directory to Couch Potato." % path)
     autoProcessMovie.process(path, settings, nzb, sys.argv[7])
@@ -78,4 +82,3 @@ elif (category == categories[3]):
 # Bypass
 elif (category == categories[4]):
     log.info("Bypassing any further processing as per category.")
-    

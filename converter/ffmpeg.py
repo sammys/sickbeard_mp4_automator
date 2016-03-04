@@ -120,6 +120,7 @@ class MediaStreamInfo(object):
         self.video_height = None
         self.video_fps = None
         self.video_level = None
+        self.pix_fmt = None
         self.audio_channels = None
         self.audio_samplerate = None
         self.attached_pic = None
@@ -199,13 +200,14 @@ class MediaStreamInfo(object):
                     self.video_fps = self.parse_float(val)
             if key == 'level':
                 self.video_level = self.parse_float(val)
+            if key == 'pix_fmt':
+                self.pix_fmt = val
 
         if self.type == 'subtitle':
             if key == 'disposition:forced':
                 self.sub_forced = self.parse_int(val)
             if key == 'disposition:default':
                 self.sub_default = self.parse_int(val)
-
 
     def __repr__(self):
         d = ''
@@ -214,8 +216,7 @@ class MediaStreamInfo(object):
         metadata_str = ', '.join(metadata_str)
 
         if self.type == 'audio':
-            d = 'type=%s, codec=%s, channels=%d, rate=%.0f, bitrate=%d' % (self.type,
-                self.codec, self.audio_channels, self.audio_samplerate, self.bitrate)
+            d = 'type=%s, codec=%s, channels=%d, rate=%.0f, bitrate=%d' % (self.type, self.codec, self.audio_channels, self.audio_samplerate, self.bitrate)
         elif self.type == 'video':
             d = 'type=%s, codec=%s, width=%d, height=%d, fps=%.1f, bitrate=%d' % (
                 self.type, self.codec, self.video_width, self.video_height,
@@ -290,8 +291,7 @@ class MediaInfo(object):
         First video stream, or None if there are no video streams.
         """
         for s in self.streams:
-            if s.type == 'video' and (self.posters_as_video
-                                      or not s.attached_pic):
+            if s.type == 'video' and (self.posters_as_video or not s.attached_pic):
                 return s
         return None
 
@@ -367,9 +367,21 @@ class FFMpeg(object):
 
     @staticmethod
     def _spawn(cmds):
+        clean_cmds = []
+        try:
+            for cmd in cmds:
+                clean_cmds.append(str(cmd))
+            cmds = clean_cmds
+        except:
+            logger.exception("There was an error making all command line parameters a string")
+        startupinfo = None
+        if os.name == 'nt':
+            import subprocess
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         logger.debug('Spawning ffmpeg with command: ' + ' '.join(cmds))
         return Popen(cmds, shell=False, stdin=PIPE, stdout=PIPE, stderr=PIPE,
-                     close_fds=(os.name != 'nt'))
+                     close_fds=(os.name != 'nt'), startupinfo=startupinfo)
 
     def probe(self, fname, posters_as_video=True):
         """
@@ -406,7 +418,7 @@ class FFMpeg(object):
         p = self._spawn([self.ffprobe_path,
                          '-show_format', '-show_streams', fname])
         stdout_data, _ = p.communicate()
-        stdout_data = stdout_data.decode(console_encoding)
+        stdout_data = stdout_data.decode(console_encoding, errors='ignore')
         info.parse_ffprobe(stdout_data)
 
         if not info.format.format and len(info.streams) == 0:
@@ -484,6 +496,10 @@ class FFMpeg(object):
                 signal.alarm(0)
 
             if not ret:
+                # For small or very fast jobs, ffmpeg may never output a '\r'.  When EOF is reached, yield if we haven't yet.
+                if not yielded:
+                    yielded = True
+                    yield 10
                 break
 
             try:
