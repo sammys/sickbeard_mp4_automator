@@ -64,12 +64,14 @@ class Tvdb_mp4:
         if ext not in valid_output_extensions:
             self.log.error("File is not the correct format.")
             sys.exit()
+
+        video = MP4(mp4Path)
         try:
-            MP4(mp4Path).delete()
+            video.delete()
+            video.save()
         except IOError:
             self.log.debug("Unable to clear original tags, attempting to proceed.")
 
-        video = MP4(mp4Path)
         video["tvsh"] = self.show  # TV show title
         video["\xa9nam"] = self.title  # Video title
         video["tven"] = self.title  # Episode title
@@ -204,8 +206,9 @@ class Tvdb_mp4:
         if poster is None:
             if thumbnail:
                 try:
-                    poster = urlretrieve(self.episodedata['filename'], os.path.join(tempfile.gettempdir(), "poster.jpg"))[0]
+                    poster = urlretrieve(self.episodedata['filename'], os.path.join(tempfile.gettempdir(), "poster-tvdb.jpg"))[0]
                 except:
+                    self.log.error("Exception while retrieving poster %s.", str(err))
                     poster = None
             else:
                 posters = posterCollection()

@@ -27,13 +27,12 @@ class BaseCodec(object):
         # Only copy options that are expected and of correct type
         # (and do typecasting on them)
         for k, v in opts.items():
-            if k in self.encoder_options:
+            if k in self.encoder_options and v is not None:
                 typ = self.encoder_options[k]
                 try:
                     safe[k] = typ(v)
                 except:
                     pass
-
         return safe
 
 
@@ -61,7 +60,8 @@ class AudioCodec(BaseCodec):
         'source': int,
         'path': str,
         'filter': str,
-        'map': int
+        'map': int,
+        'disposition': str,
     }
 
     def parse_options(self, opt, stream=0):
@@ -103,6 +103,8 @@ class AudioCodec(BaseCodec):
             optlist.extend(['-i', str(safe['path'])])
         if 'map' in safe:
             optlist.extend(['-map', s + ':' + str(safe['map'])])
+        if 'disposition' in safe:
+            optlist.extend(['-disposition:a:' + stream, str(safe['disposition'])])
         if 'channels' in safe:
             optlist.extend(['-ac:a:' + stream, str(safe['channels'])])
         if 'bitrate' in safe:
@@ -169,15 +171,19 @@ class SubtitleCodec(BaseCodec):
         else:
             s = str(0)
 
+        if 'encoding' in safe:
+            if not safe['encoding']:
+                del safe['encoding']
+
         safe = self._codec_specific_parse_options(safe)
 
         optlist = []
+        if 'encoding' in safe:
+            optlist.extend(['-sub_charenc', str(safe['encoding'])])
         optlist.extend(['-c:s:' + stream, self.ffmpeg_codec_name])
         stream = str(stream)
         if 'map' in safe:
             optlist.extend(['-map', s + ':' + str(safe['map'])])
-        if 'encoding' in safe:
-            optlist.extend(['-sub_charenc', str(safe['encoding'])])
         if 'path' in safe:
             optlist.extend(['-i', str(safe['path'])])
         if 'default' in safe:
@@ -434,7 +440,8 @@ class AudioCopyCodec(BaseCodec):
     encoder_options = {'language': str,
                        'source': str,
                        'map': int,
-                       'bsf': str}
+                       'bsf': str,
+                       'disposition' : str}
 
     def parse_options(self, opt, stream=0):
         safe = self.safe_options(opt)
@@ -458,6 +465,8 @@ class AudioCopyCodec(BaseCodec):
         else:
             lang = 'und'
         optlist.extend(['-metadata:s:a:' + stream, "language=" + lang])
+        if 'disposition' in safe:
+            optlist.extend(['-disposition:a:' + stream, str(safe['disposition'])])
         return optlist
 
 
@@ -678,6 +687,29 @@ class H264Codec(VideoCodec):
         return optlist
 
 
+class NVEncH264(H264Codec):
+    """
+    Nvidia H.264/AVC video codec.
+    @see http://ffmpeg.org/trac/ffmpeg/wiki/x264EncodingGuide
+    """
+    codec_name = 'nvenc_h264'
+    ffmpeg_codec_name = 'nvenc_h264'
+
+
+class H264QSV(H264Codec):
+    """
+    H.264/AVC video codec.
+    @see http://ffmpeg.org/trac/ffmpeg/wiki/x264EncodingGuide
+    """
+    codec_name = 'h264qsv'
+    ffmpeg_codec_name = 'h264_qsv'
+
+    def _codec_specific_produce_ffmpeg_list(self, safe, stream=0):
+        optlist = []
+        optlist.extend(['-look_ahead', '0'])
+        return optlist
+
+
 class H265Codec(VideoCodec):
     """
     H.265/AVC video codec.
@@ -728,6 +760,15 @@ class H265Codec(VideoCodec):
         elif 'hscale' in safe:
             optlist.extend(['-vf', 'scale=trunc((oh*a)/2)*2:%s' % (safe['hscale'])])
         return optlist
+
+
+class NVEncH265(H265Codec):
+    """
+    Nvidia H.265/AVC video codec.
+    @see https://trac.ffmpeg.org/wiki/Encode/H.265
+    """
+    codec_name = 'nvenc_h265'
+    ffmpeg_codec_name = 'nvenc_hevc'
 
 
 class DivxCodec(VideoCodec):
@@ -866,8 +907,8 @@ audio_codec_list = [
 ]
 
 video_codec_list = [
-    VideoNullCodec, VideoCopyCodec, TheoraCodec, H264Codec, H265Codec,
-    DivxCodec, Vp8Codec, H263Codec, FlvCodec, Mpeg1Codec,
+    VideoNullCodec, VideoCopyCodec, TheoraCodec, H264Codec, H264QSV, H265Codec,
+    DivxCodec, Vp8Codec, H263Codec, FlvCodec, Mpeg1Codec, NVEncH264, NVEncH265,
     Mpeg2Codec
 ]
 

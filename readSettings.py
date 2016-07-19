@@ -45,6 +45,8 @@ class ReadSettings:
                 log.exception("Sorry, your environment is not setup correctly for utf-8 support. Please fix your setup and try again")
                 sys.exit("Sorry, your environment is not setup correctly for utf-8 support. Please fix your setup and try again")
 
+        log.info(sys.executable)
+
         # Default settings for SickBeard
         sb_defaults = {'host': 'localhost',
                        'port': '8081',
@@ -56,6 +58,7 @@ class ReadSettings:
         # Default MP4 conversion settings
         mp4_defaults = {'ffmpeg': 'ffmpeg.exe',
                         'ffprobe': 'ffprobe.exe',
+                        'threads': 'auto',
                         'output_directory': '',
                         'copy_to': '',
                         'move_to': '',
@@ -75,9 +78,11 @@ class ReadSettings:
                         'video-bitrate': '',
                         'video-max-width': '',
                         'h264-max-level': '',
+                        'use-qsv-decoder-with-encoder': 'True',
                         'subtitle-codec': 'mov_text',
                         'subtitle-language': '',
                         'subtitle-default-language': '',
+                        'subtitle-encoding': '',
                         'convert-mp4': 'False',
                         'quick-transcode': 'False',
                         'fullpathguess': 'True',
@@ -184,6 +189,13 @@ class ReadSettings:
         section = "MP4"
         self.ffmpeg = os.path.normpath(self.raw(config.get(section, "ffmpeg")))  # Location of FFMPEG.exe
         self.ffprobe = os.path.normpath(self.raw(config.get(section, "ffprobe")))  # Location of FFPROBE.exe
+        self.threads = config.get(section, "threads")  # Number of FFMPEG threads
+        try:
+            if int(self.threads) < 1:
+                self.threads = "auto"
+        except:
+            self.threads = "auto"
+
         self.output_dir = config.get(section, "output_directory")
         if self.output_dir == '':
             self.output_dir = None
@@ -338,9 +350,12 @@ class ReadSettings:
                 log.exception("Invalid h264 level, defaulting to none.")
                 self.h264_level = None
 
+        self.qsv_decoder = config.getboolean(section, "use-qsv-decoder-with-encoder")  # Use Intel QuickSync Decoder when using QuickSync Encoder
         self.pix_fmt = config.get(section, "pix-fmt").strip().lower()
         if self.pix_fmt == '':
             self.pix_fmt = None
+        else:
+            self.pix_fmt = self.pix_fmt.replace(' ', '').split(',')
 
         self.awl = config.get(section, 'audio-language').strip().lower()  # List of acceptable languages for audio streams to be carried over from the original file, separated by a comma. Blank for all
         if self.awl == '':
@@ -351,24 +366,39 @@ class ReadSettings:
         self.scodec = config.get(section, 'subtitle-codec').strip().lower()
         if not self.scodec or self.scodec == "":
             if self.embedsubs:
-                self.scodec = 'mov_text'
+                self.scodec = ['mov_text']
             else:
-                self.scodec = 'srt'
+                self.scodec = ['srt']
             log.warning("Invalid subtitle codec, defaulting to '%s'." % self.scodec)
+        else:
+            self.scodec = self.scodec.replace(' ', '').split(',')
 
-        if self.embedsubs and self.scodec not in valid_internal_subcodecs:
-            log.warning("Invalid interal subtitle codec %s, defaulting to 'mov_text'." % self.scodec)
-            self.scodec = 'mov_text'
+        if self.embedsubs:
+            if len(self.scodec) > 1:
+                log.warning("Can only embed one subtitle type, defaulting to 'mov_text'.")
+                self.scodec = ['mov_text']
+            if self.scodec[0] not in valid_internal_subcodecs:
+                log.warning("Invalid interal subtitle codec %s, defaulting to 'mov_text'." % self.scodec[0])
+                self.scodec = ['mov_text']
+        else:
+            for codec in self.scodec:
+                if not codec in valid_external_subcodecs:
+                    log.warning("Invalid external subtitle codec %s, ignoring." % codec)
+                    self.scodec.remove(codec)
 
-        if not self.embedsubs and self.scodec not in valid_external_subcodecs:
-            log.warning("Invalid external subtitle codec %s, defaulting to 'srt'." % self.scodec)
-            self.scodec = 'srt'
+            if len(self.scodec) == 0:
+                log.warning("No valid subtitle formats found, defaulting to 'srt'.")
+                self.scodec = ['srt']
 
         self.swl = config.get(section, 'subtitle-language').strip().lower()  # List of acceptable languages for subtitle streams to be carried over from the original file, separated by a comma. Blank for all
         if self.swl == '':
             self.swl = None
         else:
             self.swl = self.swl.replace(' ', '').split(',')
+
+        self.subencoding = config.get(section, 'subtitle-encoding').strip().lower()
+        if self.subencoding == '':
+            self.subencoding = None
 
         self.adl = config.get(section, 'audio-default-language').strip().lower()  # What language to default an undefinied audio language tag to. If blank, it will remain undefined. This is useful for single language releases which tend to leave things tagged as und
         if self.adl == "" or len(self.adl) > 3:
