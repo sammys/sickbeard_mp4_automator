@@ -33,6 +33,8 @@ class tmdb_mp4:
             imdbid = 'tt' + imdbid
             self.log.debug("Correcting imdbid to %s." % imdbid)
 
+        self.imdbid = imdbid
+
         self.original = original
         for i in range(3):
             try:
@@ -67,7 +69,6 @@ class tmdb_mp4:
         video = MP4(mp4Path)
         try:
             video.delete()
-            video.save()
         except IOError:
             self.log.debug("Unable to clear original tags, attempting to proceed.")
 
@@ -195,9 +196,9 @@ class tmdb_mp4:
         # Pulls down all the poster metadata for the correct season and sorts them into the Poster object
         if poster is None:
             try:
-                poster = urlretrieve(self.movie.get_poster("l"), os.path.join(tempfile.gettempdir(), "poster-tmdb.jpg"))[0]
-            except:
-                self.log.error("Exception while retrieving poster %s.", str(err))
+                poster = urlretrieve(self.movie.get_poster("l"), os.path.join(tempfile.gettempdir(), "poster-%s.jpg" % self.imdbid))[0]
+            except Exception as e:
+                self.log.error("Exception while retrieving poster %s.", str(e))
                 poster = None
         return poster
 
@@ -211,6 +212,7 @@ def main():
             tmdb_mp4_instance.writeTags(mp4)
         else:
             print("Wrong file type")
+
 
 if __name__ == '__main__':
     main()

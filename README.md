@@ -9,7 +9,8 @@ Media Managers Supported:
 - Sickbeard
 - SickRage
 - CouchPotato
-- Sonarr (tagging not supported, see below)
+- Sonarr
+- Radarr
 
 Downloaders Supported:
 - SABNZBD
@@ -31,17 +32,18 @@ Default Settings
 2. Audio - AAC 2.0 with additional AC3 track when source has >2 channels (ex 5.1)
 3. Subtitles - mov_text
 
-Prerequesite PIP Package Installation Instructions
+Prerequisite PIP Package Installation Instructions
 --------------
+Note: Windows users should enter commands in Powershell - using '<' doesn't work in cmd
 - `VC for Python 2.7` (Windows Users Only) - Download and install - http://www.microsoft.com/en-us/download/details.aspx?id=44266
-- `setup_tools` - https://pypi.python.org/pypi/setuptools#installation-instructions
+- `setuptools` - https://pypi.python.org/pypi/setuptools#installation-instructions
 - `requests` - Run `pip install requests`
 - `requests security package` - Run `pip install requests[security]`
 - `requests-cache` - Run `pip install requests-cache`
 - `babelfish` - Run `pip install babelfish`
-- `guessit` - Run `pip install guessit<2` to use manual.py (requires guessit version 1, version 2 is a complete rewrite, still in alpha, and not backwards compatible)
-- `subliminal`- Run `pip install subliminal` to enable automatically downloading subtitles
-- `stevedore` - Run `pip install stevedore` (this will be automatically installed with subliminal)
+- `guessit` - Run `pip install "guessit<2"` to use manual.py (requires guessit version 1, version 2 is a complete rewrite, still in alpha, and not backwards compatible)
+- `subliminal`- Run `pip install "subliminal<2"` to enable automatically downloading subtitles
+- `stevedore` - Run `pip install stevedore==1.19.1` (requires stevedore version 1.19.1. This will be automatically installed with subliminal, so if subliminal is installed run `pip uninstall stevedore` then `pip install stevedore==1.19.1`)
 - `dateutil` - Run `pip install python-dateutil` (this will be automatically installed with subliminal)
 - `deluge-client` Run `pip install deluge-client` if you plan on using Deluge
 - `qtfaststart` Run `pip install qtfaststart` to enable moving moov atom
@@ -62,31 +64,44 @@ General MP4 Configuration
     - `relocate_moov` = True/False - relocates the MOOV atom to the beginning of the file for better streaming
     - `ios-audio` = creates a 2nd copy of an audio stream that will be iOS compatible (AAC Stereo) if the normal output will not be. If a stereo source stream is detected with this option enabled, an AAC stereo stream will be the only one produced (essentially overriding the codec option) to avoid multiple stereo audio stream copies in different codecs. Instead of 'true' you may also set this option to a specific codec to override the default.
     - `ios-first-track-only` = Applies the `ios-audio` option only to the first audio track encountered in the source video file. This prevents making dual audio streams for additional alternative language codecs or commentary tracks that may be present in the source file.
+    - `ios-audio-filter` = Applies FFMPEG audio filter option to ONLY the iOS audio channels created by the script. iOS audio counterpart to the `audio-filter` option below.
+    - `ios-move-last` = Rearranges the iOS audio track to be after the converted track instead of first and changes the default disposition accordingly
     - `max-audio-channels` = Sets a maximum number of audio channels. This may provide an alternative to the iOS audio option, where instead users can simply select the desired output codec and the max number of audio channels without the creation of an additional audio track.
+    - `use-hevc-qsv-decoder` = Enable HEVC decoding using QSV on supported Intel chips. 6th Generation skylake and newer.
+    - `enable_dxva2_gpu_decode` = Enable GPU decoding by using DXVA2 - Windows only. Will automatically fallback to cpu decoding when it encounters a video that it cannot decode due to unsupported pixel/color/codec. Enabling this option will disable qsv decoding of hevc and h264.
     - `video-codec` = set your desired video codecs. May specify multiple comma separated values (ex: h264, x264). The first value specified will be the default conversion choice when an undesired codec is encountered; any codecs specified here will be remuxed/copied rather than converted.
     - `video-bitrate` = allows you to set a maximum video bitrate in Kbps. If the source file exceeds the video-bitrate it will be transcoded to the specified video-bitrate, even if they source file is already in the correct video codec. If the source file is in the correct video codec and does not exceed the video-bitrate setting, then it will be copied without transcoding. Leave blank to disable this setting.
+    - `video-crf` = allows you to set the CRF which will override the video bitrate setting for those that prefer CRF. Video-bitrate setting will still be used to determine a maximum bitrate that will trigger transcoding.
     - `video-max-width` = set a max video width to downsize higher resolution video files. Aspect ratio will be preserved.
+    - `video-profile` = set the video profile. Can use multiple comma separated values to whitelist multiple profiles, first profile will be default conversion choice. Leave blank to disable.
     - `h264-max-level` = set your max h264 level. Use the decimal format. Levels lower than the specified value, if otherwise appropriate, will be copied without transcoding. Example - `4.0`.
-    - `pix_fmt` = set the video pix_fmt. If you don't know what this is just leave it blank.
+    - `pix_fmt` = set the video pix_fmt. If you don't know what this is just leave it blank. Can use multiple comma separated values to whitelist multiple formats, first format will be default conversion choice.
     - `audio-codec` = set your desired audio codecs. May specify multiple comma separated values (ex: ac3, aac). The first value specified will be the default conversion choice when an undesired codec is encountered; any codecs specified here will be remuxed/copied rather than converted.
     - `audio-channel-bitrate` = set the bitrate for each audio channel. Default is 256. Setting this value to 0 will attempt to mirror the bitrate of the audio source, but this can be unreliable as bitrates vary between different codecs.
     - `audio-channel-bitrate-copy` = set your desired maximum per-channel audio bitrate when audio streams are copied.
     - `audio-language` = 3 letter language code for audio streams you wish to copy. Leave blank to copy all. Separate multiple audio streams with commas (ex: eng,spa)
     - `audio-default-language` = If an audio stream with an unidentified/untagged language is detected, you can default that language tag to whatever this value is (ex: eng). This is useful for many single-audio releases which don't bother to tag the audio stream as anything
+    - `audio-filter` = Applies FFMPEG audio filter. Make sure you specify all parameters as you would using the `-af` option with FFMPEG command line
+    - `aac_adtstoasc` = Applies the aac_adtstoasc filter to AAC channels being copied. Useful if your source of mkv's uses raw ADTS AAC containers but can cause some playback issues with certain audio encoders
+    - `audio-copy-original` = Copies the original audio stream to the destination regardless of codec to preserve it. Will not redundantly copy the steam if its already a valid/supported codec
+    - `audio-first-track-of-language` = Adds only the first occurance of a specific language that is included in your audio-lanuage setting. Subsequent tracks of the same language will be skipped. Useful for eliminating commentary tracks.
     - `subtitle-codec` = set your desired subtitle codec. If you're embedding subs, `mov_text` is the only option supported. If you're creating external subtitle files, `srt` or `webvtt` are accepted.
     - `subtitle-language` = same as audio-language but for subtitles. Set to `nil` to disable copying of subtitles.
     - `subtitle-language-default` = same as audio-language-default but for subtitles
-    - `convert-mp4` = forces the script to reprocess and convert mp4 files as though they were mkvs. Good if you have old mp4's that you want to match your current codec configuration.
+    - `convert-mp4` = forces the script to reprocess and convert mp4 files as though they were mkvs. Good if you have old mp4's that you want to match your current codec configuration. *Caution:* Set `ios-audio` to `False` when reprocessing files to avoid adding multiple iOS audio streams.
     - `fullpathguess` = True/False - When manually processing a file, enable to guess metadata using the full path versus just the file name. (Files shows placed in a 'Movies' folder will be recognized as movies, not as TV shows for example.)
     - `tagfile` = True/False - Enable or disable tagging file with appropriate metadata after encoding.
     - `tag-language` = en - Set your tag language for TMDB/TVDB entries metadata retrieval. Use either 2 or 3 character language codes.
     - `download-artwork` = Poster/Thumbnail/False - Enabled downloading and embeddeding of Season or Movie posters and embeddeding of that image into the mp4 as the cover image. For TV shows you may choose between the season artwork or the episode thumbnail by selecting the corresponding option.
     - `embed-subs` = True/False - Enabled by default. Embeds subtitles in the resulting MP4 file that are found embedded in the source file as well as external SRT/VTT files. Disabling embed-subs will cause the script to extract any subtitles that meet your language criteria into external SRT/VTT files. The script will also attempt to download SRT files if possible and this feature is enabled.
+    - `embed-only-internal-subs` = True/False - Disabled by default. Embeds only internal subtitle tracks, will skip all external subtitles. *Caution:* `embed-subs` must be enabled for this option to work.
     - `download-subs` = True/False - When enabled the script will attempt to download subtitles of your specified languages automatically using subliminal and merge them into the final mp4 file.
     **YOU MUST INSTALL SUBLIMINAL AND ITS DEPENDENCIES FOR THIS TO WORK.** You must run `pip install subliminal` in order for this feature to be enabled.
     - `sub-providers` = Comma separated values for potential subtitle providers. Must specify at least 1 provider to enable `download-subs`. Providers include `podnapisi` `thesubdb` `opensubtitles` `tvsubtitles` `addic7ed`
+    - `preopts` = Additional unsupported options that go before the rest of the FFMPEG parameters, comma separated (Example `-preset,medium`)
+    - `postopts` = Additional unsupported options that go after the rest of the FFMEPG parameters, comma separated as above
 
-Sick Beard Setup
+Sickbeard Setup
 --------------
 1. Open Sickbeard's config.ini in Sick Beard installation folder
     - Set "extra_scripts" value in the general section to the full path to "python postConversion.py" using double backslashes
@@ -139,26 +154,50 @@ Sonarr Setup
       - `Path` - Full path to `postSonarr.py`
       - `Arguments` - Leave blank
 
-Couch Potato Setup
+Radarr Setup
 --------------
-1. Set your Couch Potato settings to the autoProcess.ini file
-    - `host` - default `localhost` - Couch Potato host address
-    - `port` - default `5050` - Couch Potato port (5050)
+1. Set your Radarr settings in the autoProcess.ini file
+    - `host` = Radarr host address (localhost)    #Settings/General/Start-Up
+    - `port` = Radarr port (7878)                 #Settings/General/Start-Up
+    - `ssl` = 1 if enabled, 0 if not              #Settings/General/Security
+    - `apikey` = Radarr API Key (required)        #Settings/General/Security
+    - `web_root` = URL base empty or e.g. /tv     #Settings/General/Start-Up
+2. Browse to the Settings>Download Client tab and enable advanced settings [Show].
+3. Set the Drone Factory Interval' to 0 to disable it, and disable 'Completed Download Handling' in Radarr settings. The script will trigger a specific path re-scan, allowing the mp4 conversion to be completed before Radarr starts moving stuff around. This step is optional if you do not desire any processing between the downloading by whichever downloader you choose (NZB or Torrent), but is required if you wish to convert the file to an MP4 before it is handed back to Radarr.
+4. Setup the postRadarr.py script via Settings > Connect > Connections > + (Add)
+    - `name` - postRadarr
+    - `On Grab` - No
+    - `On Download` - Yes
+    - `On Upgrade` - Yes
+    - `On Rename` - No
+    - Filter Series Tags - optional
+    - Windows Users
+      - `Path` - Full path to your python executable
+      - `Arguments` - Full path to `postRadarr.py`
+    - Nonwindows Users
+      - `Path` - Full path to `postRadarr.py`
+      - `Arguments` - Leave blank
+
+CouchPotato Setup
+--------------
+1. Set your CouchPotato settings to the autoProcess.ini file
+    - `host` - default `localhost` - CouchPotato host address
+    - `port` - default `5050` - CouchPotato port (5050)
     - `ssl` - `1` if enabled, `0` if not
-    - `api_key` - Couch Potato API Key
-    - `username` - your Couch Potato username
-    - `password` - your Couch Potato password
+    - `api_key` - CouchPotato API Key
+    - `username` - your CouchPotato username
+    - `password` - your CouchPotato password
 2. Edit `main.py` in the `setup\PostProcess` folder
     - Set the path variable to the script location
     - By default it points to `C:\\Scripts\\`
     - Use double backslahses
-2. Copy the PostProcess directory from the setup folder included with this script to the Couch Potato `custom_plugins` directory
-    - Navigate to the About page in Couch Potato, where the installation directory is displayed.
-    - Go to this folder and copy the PostProcess folder (the whole folder, not just the contents) to the Couch Potato `custom_plugins` directory
+2. Copy the PostProcess directory from the setup folder included with this script to the CouchPotato `custom_plugins` directory
+    - Navigate to the About page in CouchPotato, where the installation directory is displayed.
+    - Go to this folder and copy the PostProcess folder (the whole folder, not just the contents) to the CouchPotato `custom_plugins` directory
     - Delete any `.pyc` files you find.
-    - Restart Couch Potato
-    - Verify in Couch Potato logs that PostProcess was loaded.
-3. If you're using one of the post download scripts ([SAB|NZBGet|uTorrent|deluge]PostProcess.py), disable automatic checking of the renamer folder, the script will automatically notify Couch Potato when it is complete to check for new videos to be renamed and relocated. Leaving this on may cause conflicts and CouchPotato may try to relocate/rename the file before processing is completed.
+    - Restart CouchPotato
+    - Verify in CouchPotato logs that PostProcess was loaded.
+3. If you're using one of the post download scripts ([SAB|NZBGet|uTorrent|deluge]PostProcess.py), disable automatic checking of the renamer folder, the script will automatically notify CouchPotato when it is complete to check for new videos to be renamed and relocated. Leaving this on may cause conflicts and CouchPotato may try to relocate/rename the file before processing is completed.
     - Set `Run Every` to `0`
     - Set `Force Every` to `0`
     - If you aren't using one of these scripts and are using an unsupported downloader, you will need to have CouchPotato periodically check the folder for files, otherwise the post downloader scripts will manually trigger a renamer scan. Using manual triggers is helpful because it prevents a coincidental renamer scan during other processing events.
@@ -168,7 +207,7 @@ Couch Potato Setup
 NZBGet Setup
 --------------
 1. Copy the script NZBGetPostProcess.py to NZBGet's script folder.
-    - Default location is ~/downloads/scripts/
+    - Default location is /opt/nzbget/scripts/
 2. Start/Restart NZBGet
 3. Configure NZBGETPOSTPROCESS
     - Access NZBGet's WebUI
@@ -184,7 +223,8 @@ NZBGet Setup
         - `BYPASS_CAT` - default `bypass` - category of downloads that may be converted but won't be passed on further
     - Save changes
     - Reload NZBGet
-4. Verify that whatever media manager you are using is assigning the category to match the label settings specified here so that file will be passed back to the appropriate location
+4. When assigning categories in NZBGet and your chosen media manager, ensure they match the label settings specified here so that file will be passed back to the appropriate location.
+    - In the relevant category set `PostScript` to NZBGetPostProcess.py to ensure mp4_automator is called.
 
 SABNZBD Setup
 --------------
@@ -216,10 +256,10 @@ uTorrent Setup
 3. Set `Run Program` option
     - Go to `Options > Preferences > Advanced > Run Program`
     - Point to `uTorrentPostProcess.py` with command line parameters: `%L %T %D %K %F %I %N` in that exact order.
-3. Set your uTorrent settings in autoProcess.ini
+4. Set your uTorrent settings in autoProcess.ini
     - `convert` - `True`/`False`. Allows for conversion of files before passing back to the respective download manager.
     - `sickbeard-label` - default `sickbeard` - uTorrent label that should be assigned to torrents that will be sent to Sickbeard for additional processing when download is complete.
-    - `sickrage-label - default `sickrage` - uTorrent label that should be assigned to torrents that will be sent to Sickrage for additional processing when download is complete.
+    - `sickrage-label` - default `sickrage` - uTorrent label that should be assigned to torrents that will be sent to Sickrage for additional processing when download is complete.
     - `couchpotato-label` - default `couchpotato` - uTorrent label that should be assigned to torrents that will be sent to Couch Potato for additional processing when download is complete.
     - `sonarr-label` - default `sonarr` - uTorrent label that should be assigned to torrents that will be sent to Sonarr for additional processing when download is complete.
     - `bypass-label` - default `bypass` - label that should be assigned to torrents that will not be sent anywhere when download is complete. Useful if you wish to convert files without additional processing.
@@ -229,7 +269,7 @@ uTorrent Setup
     - `hostname` - your uTorrent Web UI URL, eg `http://localhost:8080/` including the trailing slash.
     - `username` - your uTorrent Web UI username.
     - `password` - your uTorrent Web UI password.
-4. Verify that whatever media manager you are using is assigning the label to match the label settings specified here so that file will be passed back to the appropriate location
+5. Verify that whatever media manager you are using is assigning the label to match the label settings specified here so that file will be passed back to the appropriate location
 
 Deluge Daemon
 --------------
@@ -306,6 +346,7 @@ optional arguments:
   -i INPUT, --input INPUT
                         The source that will be converted. May be a file or a
                         directory
+  --config              Specify an alternate configuration file location
   -a, --auto            Enable auto mode, the script will not prompt you for
                         any further input, good for batch files. It will guess
                         the metadata using guessit
@@ -339,20 +380,20 @@ optional arguments:
 Examples
 ```
 Movies (using IMDB ID):
-manual.py -i mp4path -m imdbid
-Example: manual.py -i 'C:\The Matrix.mkv' -imdb tt0133093
+manual.py -i mp4path -imdb imdbid
+Example: manual.py -i "C:\The Matrix.mkv" -imdb tt0133093
 
 Movies (using TMDB ID)
 manual.py -i mp4path -tmdb tmdbid
-Example: manual.py -i 'C:\The Matrix.mkv' -tmdb 603
+Example: manual.py -i "C:\The Matrix.mkv" -tmdb 603
 
 TV
 manual.py -i mp4path -tv tvdbid -s season -e episode
-Example: manual.py -i 'C:\Futurama S03E10.mkv' -tv 73871‎ -s 3 -e 10
+Example: manual.py -i "C:\Futurama S03E10.mkv" -tv 73871‎ -s 3 -e 10
 
 Auto Single File (will gather movie ID or TV show ID / season / spisode from the file name if possible)
 manual.py -i mp4path -silent
-Example: manual.py -i 'C:\Futurama S03E10.mkv' -a
+Example: manual.py -i "C:\Futurama S03E10.mkv" -a
 
 Directory (you will be prompted at each file for the type of file and ID)
 manual.py -i directory_path
@@ -366,7 +407,7 @@ Process a directory but manually specific TVDB ID (Good for shows that don't cor
 manual.py -i directory -a -tv tvdbid
 Example: manual.py -i C:\TV\Futurama\ -a -tv 73871
 ```
-You may also simply run `manual.py -i 'C:\The Matrix.mkv'` and the script will prompt you for the missing information or attempt to guess based on the file name.
+You may also simply run `manual.py -i 'C:\The Matrix.mkv` and the script will prompt you for the missing information or attempt to guess based on the file name.
 You may run the script with a `--auto` or `-a` switch, which will let the script guess the tagging information based on the file name, avoiding any need for user input. This is the most ideal option for large batch file operations.
 The script may also be pointed to a directory, where it will process all files in the directory. If you run the script without the `-silent` switch, you will be prompted for each file with options on how to tag, to convert without tagging, or skip.
 

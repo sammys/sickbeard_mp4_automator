@@ -3,6 +3,7 @@
 import sys
 import os
 import logging
+from extensions import valid_tagging_extensions
 from readSettings import ReadSettings
 from mkvtomp4 import MkvtoMp4
 from tmdb_mp4 import tmdb_mp4
@@ -10,7 +11,15 @@ from autoprocess import plex
 from post_processor import PostProcessor
 from logging.config import fileConfig
 
-fileConfig(os.path.join(os.path.dirname(sys.argv[0]), 'logging.ini'), defaults={'logfilename': os.path.join(os.path.dirname(sys.argv[0]), 'info.log')})
+logpath = '/var/log/sickbeard_mp4_automator'
+if os.name == 'nt':
+    logpath = os.path.dirname(sys.argv[0])
+elif not os.path.isdir(logpath):
+    try:
+        os.mkdir(logpath)
+    except:
+        logpath = os.path.dirname(sys.argv[0])
+fileConfig(os.path.join(os.path.dirname(sys.argv[0]), 'logging.ini'), defaults={'logfilename': os.path.join(logpath, 'index.log')})
 log = logging.getLogger("CouchPotatoPostConversion")
 
 log.info('MP4 Automator - Post processing script initialized')
@@ -28,26 +37,23 @@ log.debug("Original file name: %s" % original)
 
 try:
     log.info('Processing file: %s', inputfile)
-    log.info('Moving file from %s to %s', inputfile, inputfile.lower())
-    os.rename(inputfile, inputfile.lower())
-    log.info('Resetting input file variable')
-    inputfile = inputfile.lower()
-    log.info('Processing input file: %s', inputfile)
-
     if MkvtoMp4(settings).validSource(inputfile):
         log.info('File is valid')
         output = converter.process(inputfile, original=original)
 
         if output:
             # Tag with metadata
-            if settings.tagfile:
+            if settings.tagfile and output['output_extension'] in valid_tagging_extensions:
                 log.info('Tagging file with IMDB ID %s', imdbid)
-                tagmp4 = tmdb_mp4(imdbid, original=original, language=settings.taglanguage)
-                tagmp4.setHD(output['x'], output['y'])
-                tagmp4.writeTags(output['output'], settings.artwork)
+                try:
+                    tagmp4 = tmdb_mp4(imdbid, original=original, language=settings.taglanguage)
+                    tagmp4.setHD(output['x'], output['y'])
+                    tagmp4.writeTags(output['output'], settings.artwork)
+                except:
+                    log.error("Unable to tag file")
 
             # QTFS
-            if settings.relocate_moov:
+            if settings.relocate_moov and output['output_extension'] in valid_tagging_extensions:
                 converter.QTFS(output['output'])
 
             # Copy to additional locations

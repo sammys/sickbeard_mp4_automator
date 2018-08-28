@@ -8,6 +8,7 @@ import glob
 import argparse
 import struct
 import logging
+from extensions import valid_tagging_extensions
 from readSettings import ReadSettings
 from tvdb_mp4 import Tvdb_mp4
 from tmdb_mp4 import tmdb_mp4
@@ -21,7 +22,15 @@ from logging.config import fileConfig
 if sys.version[0] == "3":
     raw_input = input
 
-fileConfig(os.path.join(os.path.dirname(sys.argv[0]), 'logging.ini'), defaults={'logfilename': os.path.join(os.path.dirname(sys.argv[0]), 'info.log').replace("\\", "/")})
+logpath = '/var/log/sickbeard_mp4_automator'
+if os.name == 'nt':
+    logpath = os.path.dirname(sys.argv[0])
+elif not os.path.isdir(logpath):
+    try:
+        os.mkdir(logpath)
+    except:
+        logpath = os.path.dirname(sys.argv[0])
+fileConfig(os.path.join(os.path.dirname(sys.argv[0]), 'logging.ini'), defaults={'logfilename': os.path.join(logpath, 'index.log')})
 log = logging.getLogger("MANUAL")
 logging.getLogger("subliminal").setLevel(logging.CRITICAL)
 logging.getLogger("requests").setLevel(logging.WARNING)
@@ -115,6 +124,9 @@ def getinfo(fileName=None, silent=False, tag=True, tvdbid=None):
 
 
 def guessInfo(fileName, tvdbid=None):
+    if tvdbid:
+        guess = guessit.guess_episode_info(fileName)
+        return tvdbInfo(guess, tvdbid)
     if not settings.fullpathguess:
         fileName = os.path.basename(fileName)
     guess = guessit.guess_file_info(fileName)
@@ -203,14 +215,14 @@ def processFile(inputfile, tagdata, relativePath=None):
         converter = MkvtoMp4(settings, logger=log)
         output = converter.process(inputfile, True)
         if output:
-            if tagmp4 is not None:
+            if tagmp4 is not None and output['output_extension'] in valid_tagging_extensions:
                 try:
                     tagmp4.setHD(output['x'], output['y'])
                     tagmp4.writeTags(output['output'], settings.artwork, settings.thumbnail)
                 except Exception as e:
                     print("There was an error tagging the file")
                     print(e)
-            if settings.relocate_moov:
+            if settings.relocate_moov and output['output_extension'] in valid_tagging_extensions:
                 converter.QTFS(output['output'])
             output_files = converter.replicate(output['output'], relativePath=relativePath)
             if settings.postprocess:
@@ -325,14 +337,13 @@ def main():
     else:
         path = getValue("Enter path to file")
 
+    tvdbid = int(args['tvdbid']) if args['tvdbid'] else None
     if os.path.isdir(path):
-        tvdbid = int(args['tvdbid']) if args['tvdbid'] else None
         walkDir(path, silent, tvdbid=tvdbid, preserveRelative=args['preserveRelative'], tag=settings.tagfile)
     elif (os.path.isfile(path) and MkvtoMp4(settings, logger=log).validSource(path)):
         if (not settings.tagfile):
             tagdata = None
         elif (args['tvdbid'] and not (args['imdbid'] or args['tmdbid'])):
-            tvdbid = int(args['tvdbid']) if args['tvdbid'] else None
             season = int(args['season']) if args['season'] else None
             episode = int(args['episode']) if args['episode'] else None
             if (tvdbid and season and episode):
@@ -347,7 +358,7 @@ def main():
                 tmdbid = int(args['tmdbid'])
                 tagdata = [2, tmdbid]
         else:
-            tagdata = getinfo(path, silent=silent)
+            tagdata = getinfo(path, silent=silent, tvdbid=tvdbid)
         processFile(path, tagdata)
     else:
         try:

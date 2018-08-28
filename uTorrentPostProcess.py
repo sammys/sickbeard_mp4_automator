@@ -2,13 +2,21 @@ import os
 import re
 import sys
 import shutil
-from autoprocess import autoProcessTV, autoProcessMovie, autoProcessTVSR, sonarr
+from autoprocess import autoProcessTV, autoProcessMovie, autoProcessTVSR, sonarr, radarr
 from readSettings import ReadSettings
 from mkvtomp4 import MkvtoMp4
 import logging
 from logging.config import fileConfig
 
-fileConfig(os.path.join(os.path.dirname(sys.argv[0]), 'logging.ini'), defaults={'logfilename': os.path.join(os.path.dirname(sys.argv[0]), 'info.log').replace("\\", "/")})
+logpath = '/var/log/sickbeard_mp4_automator'
+if os.name == 'nt':
+    logpath = os.path.dirname(sys.argv[0])
+elif not os.path.isdir(logpath):
+    try:
+        os.mkdir(logpath)
+    except:
+        logpath = os.path.dirname(sys.argv[0])
+fileConfig(os.path.join(os.path.dirname(sys.argv[0]), 'logging.ini'), defaults={'logfilename': os.path.join(logpath, 'index.log')})
 log = logging.getLogger("uTorrentPostProcess")
 
 log.info("uTorrent post processing started.")
@@ -53,7 +61,7 @@ if len(sys.argv) < 6:
 settings = ReadSettings(os.path.dirname(sys.argv[0]), "autoProcess.ini")
 path = str(sys.argv[3])
 label = sys.argv[1].lower()
-categories = [settings.uTorrent['cp'], settings.uTorrent['sb'], settings.uTorrent['sonarr'], settings.uTorrent['sr'], settings.uTorrent['bypass']]
+categories = [settings.uTorrent['cp'], settings.uTorrent['sb'], settings.uTorrent['sonarr'], settings.uTorrent['radarr'], settings.uTorrent['sr'], settings.uTorrent['bypass']]
 torrent_hash = sys.argv[6]
 try:
     name = sys.argv[7]
@@ -101,14 +109,25 @@ if web_ui:
             log.debug("Sending action %s to uTorrent" % settings.uTorrentActionBefore)
 
 if settings.uTorrent['convert']:
+    # Check for custom uTorrent output_dir
+    if settings.uTorrent['output_dir']:
+        settings.output_dir = settings.uTorrent['output_dir']
+        log.debug("Overriding output_dir to %s." % settings.uTorrent['output_dir'])
+
     # Perform conversion.
     log.info("Performing conversion")
     settings.delete = False
     if not settings.output_dir:
-        settings.output_dir = os.path.join(path, name)
+        suffix = "convert"
+        if str(sys.argv[4]) == 'single':
+            log.info("Single File Torrent")
+            settings.output_dir = os.path.join(path, ("%s-%s" % (name, suffix)))
+        else:
+            log.info("Multi File Torrent")
+            settings.output_dir = os.path.abspath(os.path.join(path, '..', ("%s-%s" % (name, suffix))))
         if not os.path.exists(settings.output_dir):
             os.mkdir(settings.output_dir)
-        delete_dir = os.path.join(path, name)
+        delete_dir = settings.output_dir
 
     converter = MkvtoMp4(settings)
 
@@ -132,10 +151,10 @@ if settings.uTorrent['convert']:
                     log.info("Processing file %s." % inputfile)
                     try:
                         output = converter.process(inputfile)
-                        ignore.append(output['output'])
-                        if (label == categories[2] and settings.relocate_moov):
-                            log.debug("Performing QTFS move because video was converted and Sonarr has no post processing.")
-                            converter.QTFS(output['output'])
+                        if output is not False:
+                            ignore.append(output['output'])
+                        else:
+                            log.error("Converting file failed %s." % inputfile)
                     except:
                         log.exception("Error converting file %s." % inputfile)
                 else:
@@ -143,7 +162,14 @@ if settings.uTorrent['convert']:
 
     path = converter.output_dir
 else:
-    newpath = os.path.join(path, name)
+    suffix = "copy"
+    # name = name[:260-len(suffix)]
+    if str(sys.argv[4]) == 'single':
+        log.info("Single File Torrent")
+        newpath = os.path.join(path, ("%s-%s" % (name, suffix)))
+    else:
+        log.info("Multi File Torrent")
+        newpath = os.path.abspath(os.path.join(path, '..', ("%s-%s" % (name, suffix))))
     if not os.path.exists(newpath):
         os.mkdir(newpath)
         log.debug("Creating temporary directory %s" % newpath)
@@ -170,9 +196,12 @@ elif label == categories[2]:
     log.info("Passing %s directory to Sonarr." % path)
     sonarr.processEpisode(path, settings)
 elif label == categories[3]:
+    log.info("Passing %s directory to Radarr." % path)
+    radarr.processMovie(path, settings)
+elif label == categories[4]:
     log.info("Passing %s directory to Sickrage." % path)
     autoProcessTVSR.processEpisode(path, settings)
-elif label == categories[4]:
+elif label == categories[5]:
     log.info("Bypassing any further processing as per category.")
 
 # Run a uTorrent action after conversion.
